@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Study Materials</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+  <main class="page page-light">
+    <section class="card compact center-stack" style="max-width: 520px; min-height: 480px; justify-content: center;">
+      <h1 class="page-title" style="font-size: 3rem;">Study Materials</h1>
+      <div class="material-list" id="materialList">
+        <p>Loading materials...</p>
+      </div>
+      <section class="form-group" style="margin-top: 14px; text-align:left; max-width:100%; align-self:flex-start;">
+        <label for="materialFile">Upload a file</label>
+        <input id="materialFile" type="file" />
+        <button class="btn btn-primary btn-block" id="uploadButton" type="button" style="margin-top: 10px;">Upload File</button>
+        <p class="meta" id="uploadStatus" style="margin-top: 10px; text-align:left;"></p>
+      </section>
+      <a class="btn btn-primary" id="backToGroup" href="/group-details" style="min-width: 160px;">Go Back</a>
+    </section>
+  </main>
+  <script>
+    const meetingId = new URLSearchParams(window.location.search).get('meeting_id');
+
+    async function loadMaterials() {
+      const list = document.getElementById('materialList');
+      const backLink = document.getElementById('backToGroup');
+      if (meetingId) {
+        backLink.href = `/group-details?meeting_id=${meetingId}`;
+      }
+
+      if (!meetingId) {
+        list.innerHTML = '<p>No meeting selected.</p>';
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/study-materials?meeting_id=${encodeURIComponent(meetingId)}`);
+        const materials = await response.json();
+        if (!response.ok) {
+          list.innerHTML = `<p>Error loading materials: ${materials.error || 'Unknown error'}</p>`;
+          return;
+        }
+
+        if (!materials || materials.length === 0) {
+          list.innerHTML = '<p>No study materials available for this meeting.</p>';
+          return;
+        }
+
+        list.innerHTML = materials.map(material => {
+          const href = material.file_path || `/materials/${encodeURIComponent(material.file_name)}`;
+          return `
+            <article class="group-card" style="padding: 16px; margin-bottom: 12px;">
+              <h4>${material.file_name}</h4>
+              <p class="meta">Download attached study material.</p>
+              <a class="btn btn-secondary" href="${href}" target="_blank">${material.file_name}</a>
+            </article>
+          `;
+        }).join('');
+      } catch (error) {
+        console.error('Error loading materials:', error);
+        list.innerHTML = '<p>Error loading materials.</p>';
+      }
+    }
+
+    async function uploadMaterial() {
+      const status = document.getElementById('uploadStatus');
+      status.textContent = '';
+      const fileInput = document.getElementById('materialFile');
+      const file = fileInput.files[0];
+
+      if (!meetingId) {
+        status.textContent = 'No meeting selected to upload for.';
+        return;
+      }
+      if (!file) {
+        status.textContent = 'Please choose a file to upload.';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('meeting_id', meetingId);
+      formData.append('file', file);
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/study-materials/upload', {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: formData,
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          status.textContent = data.error || 'Upload failed. Please try again.';
+          return;
+        }
+
+        status.textContent = 'Upload succeeded. Refreshing materials...';
+        fileInput.value = '';
+        await loadMaterials();
+      } catch (error) {
+        console.error('Upload error:', error);
+        status.textContent = 'Upload failed. Please try again.';
+      }
+    }
+
+    document.getElementById('uploadButton').addEventListener('click', uploadMaterial);
+    loadMaterials();
+  </script>
+</body>
+</html>

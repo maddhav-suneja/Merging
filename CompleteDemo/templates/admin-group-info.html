@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Group Info</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+  <main class="page page-light">
+    <section class="card-wide purple-surface">
+      <div class="dashboard-grid">
+        <aside>
+          <a class="admin-badge" href="/admin-dashboard">Admin Dashboard</a>
+        </aside>
+
+        <section>
+          <h1 class="page-title">Group #<span id="groupId">ID</span></h1>
+          <form id="groupForm">
+            <div class="form-grid" style="margin-top: 18px;">
+              <div class="form-group"><label>Start Time</label><input id="startTime" type="text" value="2 PM" /></div>
+              <div class="form-group"><label>End Time</label><input id="endTime" type="text" value="5 PM" /></div>
+              <div class="form-group"><label>Number of Students</label><input id="numStudents" type="number" value="9" /></div>
+              <div class="form-group"><label>Course</label><input id="courseName" type="text" value="Calculus 1" /></div>
+              <div class="form-group"><label>Location</label><input id="building" type="text" value="Room 434, 4th Floor, Dibner Library" /></div>
+              <div class="form-group"><label>Group Notes</label><input id="meetingNote" type="text" value="Lorem ipsum" /></div>
+            </div>
+
+            <div class="student-list" id="groupStudents">
+              <p>Loading student list...</p>
+            </div>
+
+            <div class="actions center-actions">
+              <button type="button" class="btn btn-secondary" onclick="updateGroup()">Update Info</button>
+              <button type="button" class="btn btn-secondary" style="color: red;" onclick="deleteGroup()">Delete Group</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </section>
+  </main>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const meetingId = urlParams.get('meeting_id');
+
+    async function loadGroup() {
+      if (!meetingId) return;
+      try {
+        const response = await fetch('/api/groups');
+        const groups = await response.json();
+        const group = groups.find(g => g.meeting_id == meetingId);
+        if (group) {
+          document.getElementById('groupId').textContent = group.meeting_id;
+          document.getElementById('startTime').value = group.start_time;
+          document.getElementById('endTime').value = group.end_time;
+          document.getElementById('numStudents').value = group.num_of_students;
+          document.getElementById('courseName').value = group.course_name;
+          document.getElementById('building').value = `${group.building} ${group.room}`;
+          document.getElementById('meetingNote').value = group.meeting_note;
+        }
+      } catch (error) {
+        console.error('Error loading group:', error);
+      }
+    }
+
+    async function updateGroup() {
+      const data = {
+        meeting_id: meetingId,
+        start_time: document.getElementById('startTime').value,
+        end_time: document.getElementById('endTime').value,
+        num_of_students: document.getElementById('numStudents').value,
+        course_name: document.getElementById('courseName').value,
+        building: document.getElementById('building').value.split(' ')[0],
+        room: document.getElementById('building').value.split(' ').slice(1).join(' '),
+        meeting_note: document.getElementById('meetingNote').value
+      };
+      const token = localStorage.getItem('token');
+      try {
+        const response = await fetch('/api/admin/update-group', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify(data)
+        });
+        if (response.ok) {
+          alert('Group updated successfully');
+        } else {
+          alert('Failed to update group');
+        }
+      } catch (error) {
+        alert('Error updating group');
+      }
+    }
+
+    async function loadGroupStudents() {
+      const container = document.getElementById('groupStudents');
+      if (!meetingId) {
+        container.innerHTML = '<p>No meeting selected.</p>';
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/group-students?meeting_id=${meetingId}`);
+        const students = await response.json();
+        if (!response.ok) {
+          container.innerHTML = `<p>Unable to load students: ${students.error || 'Unknown error'}</p>`;
+          return;
+        }
+
+        if (!students || students.length === 0) {
+          container.innerHTML = '<p>No students have joined this group yet.</p>';
+          return;
+        }
+
+        container.innerHTML = students.map(student => `
+          <div class="student-chip">
+            <div class="student-chip-inner"><span class="small-avatar">◻</span>${student.name}</div>
+          </div>
+        `).join('');
+      } catch (error) {
+        console.error('Error loading student list:', error);
+        container.innerHTML = '<p>Error loading student list.</p>';
+      }
+    }
+
+    async function deleteGroup() {
+      if (!confirm('Are you sure you want to delete this group?')) return;
+      const token = localStorage.getItem('token');
+      try {
+        const response = await fetch('/api/admin/delete-group', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ meeting_id: meetingId })
+        });
+        if (response.ok) {
+          alert('Group deleted successfully');
+          window.location.href = '/admin-groups';
+        } else {
+          alert('Failed to delete group');
+        }
+      } catch (error) {
+        alert('Error deleting group');
+      }
+    }
+
+    loadGroup();
+    loadGroupStudents();
+  </script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Invitation | StuBud</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="page-wrapper">
+        <div class="home-icon">
+            <a href="{{ url_for('dashboard_page') }}" title="Back to Dashboard">⌂</a>
+        </div>
+
+        <div class="invite-container">
+            <h1>Send an invitation to a Student</h1>
+
+            <form id="inviteForm">
+                <div class="form-group">
+                    <label for="nyu_email">NYU Email</label>
+                    <input
+                        type="email"
+                        id="nyu_email"
+                        name="nyu_email"
+                        placeholder="Enter NYU email"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="meeting_id">Groups</label>
+                    <select id="meeting_id" name="meeting_id" required>
+                        <option value="">Select a group</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="invite-btn">Invite</button>
+            </form>
+
+            <p id="message"></p>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem("token");
+
+        async function loadGroups() {
+            const select = document.getElementById("meeting_id");
+
+            try {
+                const res = await fetch("/api/groups");
+                const groups = await res.json();
+
+                if (!Array.isArray(groups)) {
+                    select.innerHTML = '<option value="">No groups found</option>';
+                    return;
+                }
+
+                groups.forEach(group => {
+                    const option = document.createElement("option");
+                    option.value = group.meeting_id;
+
+                    const courseName = group.course_name || "Unnamed Course";
+                    const building = group.building || "";
+                    const room = group.room || "";
+
+                    option.textContent = `#${group.meeting_id} - ${courseName} ${building && room ? `(${building} ${room})` : ""}`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error("Failed to load groups:", error);
+                select.innerHTML = '<option value="">Failed to load groups</option>';
+            }
+        }
+
+        document.getElementById("inviteForm").addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            const messageEl = document.getElementById("message");
+            messageEl.textContent = "";
+
+            const nyu_email = document.getElementById("nyu_email").value.trim();
+            const meeting_id = document.getElementById("meeting_id").value;
+
+            if (!token) {
+                messageEl.textContent = "You must be logged in to send invitations.";
+                return;
+            }
+
+            try {
+                const res = await fetch("/api/invitations", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ nyu_email, meeting_id })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    messageEl.textContent = data.error || "Failed to send invitation.";
+                    return;
+                }
+
+                messageEl.textContent = data.message || "Invitation sent successfully.";
+                document.getElementById("inviteForm").reset();
+            } catch (error) {
+                console.error("Error sending invitation:", error);
+                messageEl.textContent = "Something went wrong while sending the invitation.";
+            }
+        });
+
+        loadGroups();
+    </script>
+</body>
+</html>

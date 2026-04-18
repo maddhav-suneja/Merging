@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Students</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+  <main class="page page-light">
+    <section class="card-wide purple-surface">
+      <div class="dashboard-grid">
+        <aside>
+          <a class="admin-badge" href="/admin-dashboard">Admin Dashboard</a>
+        </aside>
+
+        <section>
+          <div class="topbar">
+            <h1 class="page-title">Students</h1>
+            <input class="search" type="text" placeholder="Search" />
+          </div>
+
+          <div class="student-list" id="studentsContainer" style="margin-top: 34px;">
+            <p>Loading students...</p>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+  <script>
+    async function loadStudents() {
+      try {
+        const response = await fetch('/api/students');
+        const students = await response.json();
+        if (response.ok) {
+          const container = document.getElementById('studentsContainer');
+          container.innerHTML = '';
+          students.forEach(student => {
+            const chip = document.createElement('a');
+            chip.className = 'student-chip';
+            chip.href = '/admin-student-info?email=' + student.nyu_email;
+            chip.innerHTML = `
+              <div class="student-chip-inner">
+                <span class="small-avatar">◻</span>${student.first_name} ${student.last_name}
+              </div>
+            `;
+            container.appendChild(chip);
+          });
+        } else {
+          document.getElementById('studentsContainer').innerHTML = '<p>Failed to load students</p>';
+        }
+      } catch (error) {
+        document.getElementById('studentsContainer').innerHTML = '<p>Error loading students</p>';
+      }
+    }
+    loadStudents();
+  </script>
+</body>
+</html>

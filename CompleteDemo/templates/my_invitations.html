@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Invitations | StuBud</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  <style>
+    .invitation-card {
+      background: #fafafa;
+      border: 1px solid #f0f0f0;
+      border-radius: 16px;
+      padding: 18px 20px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .invitation-card h4 {
+      margin-bottom: 2px;
+    }
+    .card-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <main class="page page-light">
+    <section class="card-wide">
+      <div class="topbar" style="align-items: center;">
+        <div>
+          <h1 class="page-title">My Invitations</h1>
+          <p class="section-subtitle">Pending group invitations sent to you</p>
+        </div>
+        <a class="btn btn-secondary" href="/dashboard">Back to Dashboard</a>
+      </div>
+
+      <div id="invitationsContainer">
+        <p>Loading invitations...</p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      window.location.href = '/login';
+    }
+
+    async function loadInvitations() {
+      try {
+        const res = await fetch('/api/my-invitations', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const container = document.getElementById('invitationsContainer');
+
+        if (!res.ok) {
+          container.innerHTML = `<p style="color:var(--danger)">${data.error || 'Failed to load invitations.'}</p>`;
+          return;
+        }
+
+        if (!data.length) {
+          container.innerHTML = '<p>You have no pending invitations.</p>';
+          return;
+        }
+
+        container.innerHTML = '<div class="grid-cards">' +
+          data.map(inv => `
+            <div class="invitation-card" id="inv-${inv.meeting_id}">
+              <div>
+                <h4>${inv.course_name || 'Group'} &mdash; Meeting #${inv.meeting_id}</h4>
+                <p class="meta">
+                  Start: ${inv.start_time ? new Date(inv.start_time).toLocaleString() : 'N/A'}<br>
+                  End: ${inv.end_time ? new Date(inv.end_time).toLocaleString() : 'N/A'}<br>
+                  Location: ${inv.building && inv.room ? inv.building + ' ' + inv.room : 'N/A'}<br>
+                  ${inv.meeting_note ? 'Note: ' + inv.meeting_note + '<br>' : ''}
+                  Invited: ${inv.sent_date || 'N/A'}
+                </p>
+              </div>
+              <div class="card-actions">
+                <button class="btn btn-success" onclick="respond(${inv.meeting_id}, 'accept')">Accept</button>
+                <button class="btn btn-danger" onclick="respond(${inv.meeting_id}, 'decline')">Decline</button>
+              </div>
+              <p id="msg-${inv.meeting_id}" style="font-size:0.9rem; color:var(--muted);"></p>
+            </div>
+          `).join('') +
+          '</div>';
+      } catch (err) {
+        console.error(err);
+        document.getElementById('invitationsContainer').innerHTML = '<p>Error loading invitations.</p>';
+      }
+    }
+
+    async function respond(meetingId, action) {
+      const msgEl = document.getElementById(`msg-${meetingId}`);
+      msgEl.textContent = '';
+
+      try {
+        const res = await fetch('/api/invitations/respond', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ meeting_id: meetingId, action })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          msgEl.style.color = 'var(--danger)';
+          msgEl.textContent = data.error || 'Something went wrong.';
+          return;
+        }
+
+        const card = document.getElementById(`inv-${meetingId}`);
+        card.style.opacity = '0.5';
+        card.querySelectorAll('button').forEach(b => b.disabled = true);
+        msgEl.style.color = 'var(--primary)';
+        msgEl.textContent = data.message || 'Done.';
+
+        setTimeout(() => card.remove(), 1200);
+      } catch (err) {
+        console.error(err);
+        msgEl.style.color = 'var(--danger)';
+        msgEl.textContent = 'Network error. Please try again.';
+      }
+    }
+
+    loadInvitations();
+  </script>
+</body>
+</html>

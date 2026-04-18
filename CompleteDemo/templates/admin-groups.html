@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Groups</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+  <main class="page page-light">
+    <section class="card-wide purple-surface">
+      <div class="dashboard-grid">
+        <aside>
+          <a class="admin-badge" href="/admin-dashboard">Admin Dashboard</a>
+        </aside>
+
+        <section>
+          <div class="topbar">
+            <h1 class="page-title">Groups</h1>
+            <input class="search" type="text" placeholder="Search" />
+          </div>
+
+          <div class="grid-cards" id="groupsContainer">
+            <p>Loading groups...</p>
+          </div>
+
+          <div class="actions" style="justify-content: flex-end;">
+            <a class="btn btn-secondary" href="/create-group">Create a New</a>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+  <script>
+    async function loadGroups() {
+      try {
+        const response = await fetch('/api/groups');
+        const groups = await response.json();
+        if (response.ok) {
+          const container = document.getElementById('groupsContainer');
+          container.innerHTML = '';
+          groups.forEach(group => {
+            const card = document.createElement('a');
+            card.className = 'admin-group-card';
+            card.href = '/admin-group-info?meeting_id=' + group.meeting_id;
+            card.innerHTML = `
+              <h4>${group.course_name || 'Group'} — ${group.meeting_id}</h4>
+              <p class="meta">Start time: ${new Date(group.start_time).toLocaleString()}<br>End time: ${new Date(group.end_time).toLocaleString()}<br>Note: ${group.meeting_note || 'No note'}<br>Students: ${group.num_of_students || 0}<br>Location: ${group.building || 'TBD'} ${group.room || ''}</p>
+            `;
+            container.appendChild(card);
+          });
+        } else {
+          document.getElementById('groupsContainer').innerHTML = '<p>Failed to load groups</p>';
+        }
+      } catch (error) {
+        document.getElementById('groupsContainer').innerHTML = '<p>Error loading groups</p>';
+      }
+    }
+    loadGroups();
+  </script>
+</body>
+</html>
