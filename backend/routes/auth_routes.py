@@ -1,4 +1,4 @@
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, g, jsonify, make_response, request
 
 from services.auth import build_token, hash_password, sanitize_student, verify_password
 from services.db import supabase
@@ -79,3 +79,31 @@ def login():
         ),
         200,
     )
+
+
+@auth_bp.route("/admin-login", methods=["POST"])
+def admin_login():
+    data = request.get_json(silent=True) or {}
+    nyu_email = (data.get("nyu_email") or "").strip().lower()
+    password = data.get("password") or ""
+
+    if not nyu_email or not password:
+        return error_response("nyu_email and password are required")
+
+    student = fetch_student_or_none(nyu_email)
+    if not student or not verify_password(password, student["hashed_password"]):
+        return error_response("Invalid email or password", 401)
+
+    if student["account_role"] != "admin":
+        return error_response("Admin access required", 403)
+
+    token = build_token(student)
+    response = make_response(jsonify({"message": "Login successful"}), 200)
+    response.set_cookie(
+        "admin_token",
+        token,
+        httponly=True,
+        samesite="Lax",
+        max_age=7 * 24 * 60 * 60,
+    )
+    return response

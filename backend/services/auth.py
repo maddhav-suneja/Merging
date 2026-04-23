@@ -4,7 +4,7 @@ from functools import wraps
 
 import bcrypt
 import jwt
-from flask import g, request
+from flask import g, redirect, request
 
 from config import SUPABASE_JWT_SECRET
 from services.responses import error_response
@@ -97,6 +97,28 @@ def require_admin(fn):
     def wrapper(*args, **kwargs):
         if request.user_role != "admin":
             return error_response("Admin access required", 403)
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def require_admin_page(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        token = request.cookies.get("admin_token")
+        if not token:
+            return redirect("/admin-login")
+        try:
+            payload = jwt.decode(
+                token,
+                SUPABASE_JWT_SECRET,
+                algorithms=[_ALGORITHM],
+                audience="authenticated",
+            )
+            if payload.get("account_role") != "admin":
+                return redirect("/admin-login")
+        except jwt.InvalidTokenError:
+            return redirect("/admin-login")
         return fn(*args, **kwargs)
 
     return wrapper

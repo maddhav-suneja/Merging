@@ -3,11 +3,13 @@ from flask_cors import CORS
 import sys
 import os
 
+
 # Add backend directory to path for imports
 backend_path = os.path.join(os.path.dirname(__file__), 'backend')
 sys.path.insert(0, backend_path)
 
 from routes.auth_routes import auth_bp
+from services.auth import require_admin_page
 from routes.dashboard_routes import dashboard_bp
 from routes.profile_routes import profile_bp
 from routes.public_routes import public_bp
@@ -107,8 +109,9 @@ def student_info_page():
 
 @app.route('/logout')
 def logout():
-    """Logout - clears token"""
-    return redirect('/')
+    response = redirect('/')
+    response.delete_cookie('admin_token')
+    return response
 
 
 @app.route('/admin-login')
@@ -118,32 +121,32 @@ def admin_login_page():
 
 
 @app.route('/admin-dashboard')
+@require_admin_page
 def admin_dashboard_page():
-    """Admin dashboard page"""
     return render_template('admin-dashboard.html')
 
 
 @app.route('/admin-groups')
+@require_admin_page
 def admin_groups_page():
-    """Admin groups page"""
     return render_template('admin-groups.html')
 
 
 @app.route('/admin-group-info')
+@require_admin_page
 def admin_group_info_page():
-    """Admin group info page"""
     return render_template('admin-group-info.html')
 
 
 @app.route('/admin-students')
+@require_admin_page
 def admin_students_page():
-    """Admin students page"""
     return render_template('admin-students.html')
 
 
 @app.route('/admin-student-info')
+@require_admin_page
 def admin_student_info_page():
-    """Admin student info page"""
     return render_template('admin-student-info.html')
 
 
@@ -215,5 +218,5 @@ def api_students():
         return {'error': str(e)}, 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
